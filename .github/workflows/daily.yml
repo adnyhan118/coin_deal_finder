@@ -1,38 +1,39 @@
 name: Daily coin deal scan
-
 on:
   schedule:
     - cron: "0 13 * * *"  # runs daily at 13:00 UTC (~9am US Eastern)
   workflow_dispatch: {}     # lets you also trigger it manually from the Actions tab
-
 permissions:
   contents: write
-
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
           playwright install --with-deps chromium
-
       - name: Scrape GovDeals listings
         run: python scripts/scrape_govdeals.py
-
+      - name: Upload debug files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-page
+          path: |
+            debug_page.html
+            debug_page.png
+          if-no-files-found: ignore
       - name: Enrich listings with value/profit/confidence
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python scripts/enrich.py
-
       - name: Commit and push updated dashboard data
         run: |
           git config user.name "coin-deal-bot"
