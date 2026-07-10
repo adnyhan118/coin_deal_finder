@@ -1,9 +1,12 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Coin deal finder</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Inventory tracker</title>
 <style>
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -67,7 +70,17 @@
 </head>
 <body>
 
-<h1>Coin deal finder</h1>
+<div id="gate" style="max-width:320px; margin:80px auto; text-align:center;">
+  <p style="font-size:14px; color:#666; margin-bottom:12px;">Enter passphrase</p>
+  <input type="password" id="passInput" style="padding:8px 10px; border:1px solid #ccc; border-radius:6px; width:200px; font-size:14px;">
+  <br><br>
+  <button id="passBtn" style="padding:8px 16px; border:1px solid #ccc; border-radius:6px; background:#fff; cursor:pointer; font-size:14px;">Enter</button>
+  <p id="passError" style="color:#c0392b; font-size:13px; margin-top:10px; display:none;">Incorrect passphrase.</p>
+</div>
+
+<div id="content" style="display:none;">
+
+<h1>Inventory tracker</h1>
 <p id="updated">Loading...</p>
 
 <div class="stats" id="stats"></div>
@@ -97,6 +110,38 @@
 </table>
 
 <div id="empty-state" style="display:none;">No listings yet. Check back after the next daily run.</div>
+
+</div>
+
+<script>
+// CHANGE THIS to your own passphrase. Note: this is only a casual deterrent,
+// not real security -- anyone who views the page source can find this value,
+// and data.json is separately fetchable directly regardless of this gate.
+const PASSPHRASE = "changeme123";
+
+function tryUnlock() {
+  const input = document.getElementById("passInput").value;
+  if (input === PASSPHRASE) {
+    sessionStorage.setItem("unlocked", "yes");
+    document.getElementById("gate").style.display = "none";
+    document.getElementById("content").style.display = "block";
+    loadDashboard();
+  } else {
+    document.getElementById("passError").style.display = "block";
+  }
+}
+
+document.getElementById("passBtn").addEventListener("click", tryUnlock);
+document.getElementById("passInput").addEventListener("keydown", e => {
+  if (e.key === "Enter") tryUnlock();
+});
+
+if (sessionStorage.getItem("unlocked") === "yes") {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  loadDashboard();
+}
+</script>
 
 <script>
 const confRank = { High: 3, Medium: 2, Low: 1 };
@@ -145,29 +190,32 @@ function render(listings, sortKey) {
   });
 }
 
-fetch("data.json")
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById("updated").textContent = "Last updated: " + (data.generated_at ?? "unknown");
-    const listings = data.listings ?? [];
+function loadDashboard() {
+  fetch("data.json")
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById("updated").textContent = "Last updated: " + (data.generated_at ?? "unknown");
+      const listings = data.listings ?? [];
 
-    const highConf = listings.filter(l => l.confidence === "High").length;
-    const bestMargin = listings.reduce((max, l) => Math.max(max, l.profit_pct ?? -Infinity), -Infinity);
+      const highConf = listings.filter(l => l.confidence === "High").length;
+      const bestMargin = listings.reduce((max, l) => Math.max(max, l.profit_pct ?? -Infinity), -Infinity);
 
-    document.getElementById("stats").innerHTML = `
-      <div class="stat-card"><p class="stat-label">Listings scanned</p><p class="stat-value">${listings.length}</p></div>
-      <div class="stat-card"><p class="stat-label">High-confidence deals</p><p class="stat-value">${highConf}</p></div>
-      <div class="stat-card"><p class="stat-label">Best margin found</p><p class="stat-value">${bestMargin > -Infinity ? bestMargin + "%" : "—"}</p></div>
-    `;
+      document.getElementById("stats").innerHTML = `
+        <div class="stat-card"><p class="stat-label">Listings scanned</p><p class="stat-value">${listings.length}</p></div>
+        <div class="stat-card"><p class="stat-label">High-confidence deals</p><p class="stat-value">${highConf}</p></div>
+        <div class="stat-card"><p class="stat-label">Best margin found</p><p class="stat-value">${bestMargin > -Infinity ? bestMargin + "%" : "—"}</p></div>
+      `;
 
-    render(listings, "profit_pct");
-    document.getElementById("sortSelect").addEventListener("change", e => render(listings, e.target.value));
-  })
-  .catch(() => {
-    document.getElementById("updated").textContent = "No data yet.";
-    document.getElementById("empty-state").style.display = "block";
-  });
+      render(listings, "profit_pct");
+      document.getElementById("sortSelect").addEventListener("change", e => render(listings, e.target.value));
+    })
+    .catch(() => {
+      document.getElementById("updated").textContent = "No data yet.";
+      document.getElementById("empty-state").style.display = "block";
+    });
+}
 </script>
 
 </body>
 </html>
+
